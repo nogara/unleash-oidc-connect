@@ -5,6 +5,11 @@ on:
     # Run every 2 days at midnight UTC
     - cron: "0 0 */2 * *"
   workflow_dispatch:
+    inputs:
+      force_version:
+        description: "Force build for a specific upstream tag (e.g. v7.5.1). Skips the up-to-date check."
+        required: false
+        default: ""
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -26,11 +31,16 @@ jobs:
       - name: Get latest Unleash upstream release
         id: upstream
         run: |
-          UPSTREAM=$(curl -s https://api.github.com/repos/Unleash/unleash/releases/latest \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            | jq -r '.tag_name')
+          if [ -n "${{ inputs.force_version }}" ]; then
+            UPSTREAM="${{ inputs.force_version }}"
+            echo "Force mode: using ${UPSTREAM}"
+          else
+            UPSTREAM=$(curl -s https://api.github.com/repos/Unleash/unleash/releases/latest \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              | jq -r '.tag_name')
+            echo "Upstream latest: ${UPSTREAM}"
+          fi
           echo "tag=${UPSTREAM}" >> "$GITHUB_OUTPUT"
-          echo "Upstream latest: ${UPSTREAM}"
 
       - name: Get latest release in this repo
         id: current
@@ -44,7 +54,10 @@ jobs:
       - name: Check if sync is needed
         id: check
         run: |
-          if [ "${{ steps.upstream.outputs.tag }}" = "${{ steps.current.outputs.tag }}" ]; then
+          if [ -n "${{ inputs.force_version }}" ]; then
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+            echo "Force mode: skipping up-to-date check."
+          elif [ "${{ steps.upstream.outputs.tag }}" = "${{ steps.current.outputs.tag }}" ]; then
             echo "needed=false" >> "$GITHUB_OUTPUT"
             echo "Already up to date (${{ steps.current.outputs.tag }}). Nothing to do."
           else
