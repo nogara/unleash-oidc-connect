@@ -4,6 +4,7 @@ ARG UNLEASH_VERSION=latest
 
 WORKDIR /unleash
 RUN npm install unleash-server@${UNLEASH_VERSION} passport passport-openidconnect
+COPY index.js .
 
 EXPOSE 4242
 USER node
