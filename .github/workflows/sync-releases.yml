@@ -1,0 +1,103 @@
+name: Sync Unleash Releases
+
+on:
+  schedule:
+    # Run every 6 hours
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+jobs:
+  sync:
+    name: Check and sync upstream release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get latest Unleash upstream release
+        id: upstream
+        run: |
+          UPSTREAM=$(curl -s https://api.github.com/repos/Unleash/unleash/releases/latest \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            | jq -r '.tag_name')
+          echo "tag=${UPSTREAM}" >> "$GITHUB_OUTPUT"
+          echo "Upstream latest: ${UPSTREAM}"
+
+      - name: Get latest release in this repo
+        id: current
+        run: |
+          CURRENT=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/latest \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            | jq -r '.tag_name // "none"')
+          echo "tag=${CURRENT}" >> "$GITHUB_OUTPUT"
+          echo "Current latest: ${CURRENT}"
+
+      - name: Check if sync is needed
+        id: check
+        run: |
+          if [ "${{ steps.upstream.outputs.tag }}" = "${{ steps.current.outputs.tag }}" ]; then
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+            echo "Already up to date (${{ steps.current.outputs.tag }}). Nothing to do."
+          else
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+            echo "New upstream release: ${{ steps.upstream.outputs.tag }} (current: ${{ steps.current.outputs.tag }})"
+          fi
+
+      - name: Configure git
+        if: steps.check.outputs.needed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Update version file and commit
+        if: steps.check.outputs.needed == 'true'
+        run: |
+          TAG="${{ steps.upstream.outputs.tag }}"
+          # Strip leading 'v' for npm version (e.g. v6.4.2 → 6.4.2)
+          NPM_VERSION="${TAG#v}"
+          echo "${NPM_VERSION}" > UNLEASH_VERSION
+          git add UNLEASH_VERSION
+          git commit -m "chore: bump unleash-server to ${TAG}"
+
+      - name: Create tag
+        if: steps.check.outputs.needed == 'true'
+        run: |
+          git tag "${{ steps.upstream.outputs.tag }}"
+          git push origin main "${{ steps.upstream.outputs.tag }}"
+
+      - name: Get upstream release notes
+        if: steps.check.outputs.needed == 'true'
+        id: notes
+        run: |
+          BODY=$(curl -s https://api.github.com/repos/Unleash/unleash/releases/latest \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            | jq -r '.body // ""')
+          # GitHub output multiline trick
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "body<<${EOF}" >> "$GITHUB_OUTPUT"
+          echo "${BODY}" >> "$GITHUB_OUTPUT"
+          echo "${EOF}" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        if: steps.check.outputs.needed == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.upstream.outputs.tag }}
+          name: ${{ steps.upstream.outputs.tag }}
+          body: |
+            Synced from [Unleash/unleash ${{ steps.upstream.outputs.tag }}](https://github.com/Unleash/unleash/releases/tag/${{ steps.upstream.outputs.tag }}).
+
+            Docker image:
+            ```
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/unleash-oidc-connect:${{ steps.upstream.outputs.tag }}
+            ```
+
+            ---
+
+            ${{ steps.notes.outputs.body }}
+          make_latest: true
