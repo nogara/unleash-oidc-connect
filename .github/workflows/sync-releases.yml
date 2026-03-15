@@ -79,13 +79,23 @@ jobs:
           NPM_VERSION="${TAG#v}"
           echo "${NPM_VERSION}" > UNLEASH_VERSION
           git add UNLEASH_VERSION
-          git commit -m "chore: bump unleash-server to ${TAG}"
+          if git diff --cached --quiet; then
+            echo "UNLEASH_VERSION already up to date — skipping commit."
+          else
+            git commit -m "chore: bump unleash-server to ${TAG}"
+          fi
 
       - name: Create and push tag
         if: steps.check.outputs.needed == 'true'
         run: |
-          git tag "${{ steps.upstream.outputs.tag }}"
-          git push origin main "${{ steps.upstream.outputs.tag }}"
+          TAG="${{ steps.upstream.outputs.tag }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag ${TAG} already exists locally — skipping tag creation."
+          else
+            git tag "$TAG"
+          fi
+          git push origin main || true
+          git push origin "$TAG" || true
 
       - name: Get upstream release notes
         if: steps.check.outputs.needed == 'true'
