@@ -58,6 +58,7 @@ services:
 | Variable | Required | Description |
 |---|---|---|
 | `UNLEASH_URL` | ✅ | Public URL of your Unleash instance (e.g. `https://unleash.example.com`) |
+| `OIDC_PROVIDER` | ☑️ | OIDC provider, Dex / Google / Keycloak by default |
 | `OIDC_ISSUER` | ✅ | OIDC issuer base URL (e.g. `https://dex.example.com`) |
 | `OIDC_CLIENT_ID` | ✅ | OAuth2 client ID registered with your OIDC provider |
 | `OIDC_CLIENT_SECRET` | ✅ | OAuth2 client secret |
