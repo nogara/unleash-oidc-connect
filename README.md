@@ -1,6 +1,6 @@
 # unleash-oidc-connect
 
-Unleash feature toggle server with OIDC authentication via [passport-openidconnect](https://github.com/jaredhanson/passport-openidconnect). Designed to work with [Dex](https://dexidp.io/) or any OIDC-compliant provider (Google, Keycloak, Authentik, etc.).
+Unleash feature toggle server with OIDC authentication via [passport-openidconnect](https://github.com/jaredhanson/passport-openidconnect). Designed to work with [Dex](https://dexidp.io/) or any OIDC-compliant provider (Authentik, Azure, Google, Keycloak, etc.).
 
 ## Docker Image
 
@@ -33,6 +33,7 @@ services:
     environment:
       DATABASE_URL: postgresql://unleash:unleash@db/unleash
       UNLEASH_URL: https://unleash.example.com
+      OIDC_PROVIDER: default
       OIDC_ISSUER: https://dex.example.com
       OIDC_CLIENT_ID: unleash
       OIDC_CLIENT_SECRET: your-secret
@@ -58,7 +59,7 @@ services:
 | Variable | Required | Description |
 |---|---|---|
 | `UNLEASH_URL` | ✅ | Public URL of your Unleash instance (e.g. `https://unleash.example.com`) |
-| `OIDC_PROVIDER` | ☑️ | OIDC provider, Dex / Google / Keycloak by default |
+| `OIDC_PROVIDER` | ☑️ | OIDC provider, Dex / Google / Keycloak by default (Other supported value: azure) |
 | `OIDC_ISSUER` | ✅ | OIDC issuer base URL (e.g. `https://dex.example.com`) |
 | `OIDC_CLIENT_ID` | ✅ | OAuth2 client ID registered with your OIDC provider |
 | `OIDC_CLIENT_SECRET` | ✅ | OAuth2 client secret |
